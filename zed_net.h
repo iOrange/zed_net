@@ -94,9 +94,15 @@ ZED_NET_DEF const char *zed_net_host_to_str(unsigned int host);
 // UDP SOCKETS API
 //
 
+#ifdef _WIN32
+typedef size_t zed_net_socket_handle_t;
+#else
+typedef int zed_net_socket_handle_t;
+#endif
+
 // Wraps the system handle for a UDP/TCP socket
 typedef struct {
-    int handle;
+    zed_net_socket_handle_t handle;
     int non_blocking;
     int ready;
 } zed_net_socket_t;
@@ -184,6 +190,7 @@ ZED_NET_DEF int zed_net_tcp_make_socket_ready(zed_net_socket_t *socket);
 #include <time.h>
 
 #ifdef _WIN32
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include <WinSock2.h>
 #pragma comment(lib, "wsock32.lib")
 #else
@@ -279,7 +286,8 @@ ZED_NET_DEF int zed_net_udp_socket_open(zed_net_socket_t *sock, unsigned int por
     // Set the socket to non-blocking if neccessary
     if (non_blocking) {
 #ifdef _WIN32
-        if (ioctlsocket(sock->handle, FIONBIO, &non_blocking) != 0) {
+        u_long arg = (u_long)non_blocking;
+        if (ioctlsocket(sock->handle, FIONBIO, &arg) != 0) {
             zed_net_socket_close(sock);
             return zed_net__error("Failed to set socket to non-blocking");
         }
@@ -321,7 +329,8 @@ ZED_NET_DEF int zed_net_tcp_socket_open(zed_net_socket_t *sock, unsigned int por
     // Set the socket to non-blocking if neccessary
     if (non_blocking) {
 #ifdef _WIN32
-        if (ioctlsocket(sock->handle, FIONBIO, &non_blocking) != 0) {
+        u_long arg = (u_long)non_blocking;
+        if (ioctlsocket(sock->handle, FIONBIO, &arg) != 0) {
             zed_net_socket_close(sock);
             return zed_net__error("Failed to set socket to non-blocking");
         }
@@ -420,7 +429,8 @@ ZED_NET_DEF int zed_net_tcp_connect(zed_net_socket_t *socket, zed_net_address_t 
 
 ZED_NET_DEF int zed_net_tcp_accept(zed_net_socket_t *listening_socket, zed_net_socket_t *remote_socket, zed_net_address_t *remote_addr) {
     struct sockaddr_in address;
-	int retval, handle;
+    int retval;
+    zed_net_socket_handle_t handle;
 
     if (!listening_socket)
         return zed_net__error("Listening socket is NULL");
